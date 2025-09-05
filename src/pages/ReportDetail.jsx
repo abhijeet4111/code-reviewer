@@ -8,8 +8,10 @@ import { format } from 'date-fns';
 
 const ReportDetail = () => {
   const { id } = useParams();
+  console.log("id",id);
   const navigate = useNavigate();
-  const { data: report, isLoading, error } = useGetScanByIdQuery(parseInt(id));
+  const { data: report, isLoading, error } = useGetScanByIdQuery(id);
+  console.log("report",report);
 
   const severityColors = {
     HIGH: 'bg-red-100 text-red-800',
