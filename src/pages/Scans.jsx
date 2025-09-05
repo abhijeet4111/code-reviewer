@@ -45,25 +45,25 @@ const Scans = () => {
     setScanning(true);
     try {
       const scanData = {
-        name: url.split('/').pop(),
-        url: url
+        url: url.trim(),
+        rules: [] // Use all active rules by default
       };
 
       const result = await createScan(scanData).unwrap();
       
       if (!result) {
-        throw new Error('Invalid scan result');
+        throw new Error('Failed to initiate scan');
       }
 
       addNotification({
-        title: 'Scan Complete',
-        message: `Found ${result.totalIssues} security issues in ${result.name}`,
+        title: 'Scan Started',
+        message: `Security scan initiated for ${result.name}. You'll be redirected to view the results.`,
       });
       
       // Short delay before navigation for better UX
       setTimeout(() => {
         navigate('/reports');
-      }, 1000);
+      }, 1500);
     } catch (error) {
       console.error('Scan error:', error);
       addNotification({

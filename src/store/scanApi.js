@@ -1,147 +1,128 @@
-import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
-import { repositories } from '../data/mockScans';
-import { getSelectedRules } from '../lib/rulesStorage';
-import { runRuleScan } from '../lib/scanner';
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-// Convert dates to ISO strings for serialization
-const serializeRepo = (repo) => ({
-  ...repo,
-  lastScan: repo.lastScan instanceof Date ? repo.lastScan.toISOString() : repo.lastScan,
+// Backend API base URL
+const API_BASE_URL = 'http://localhost:5000/api';
+
+// Transform scan data from backend format to frontend format
+const transformScanData = (scan) => ({
+  id: scan.id,
+  name: scan.repository_name,
+  url: scan.repository_url,
+  lastScan: scan.scan_started_at,
+  status: scan.scan_status,
+  issues: scan.results || [],
+  resolved: scan.results ? scan.results.filter(r => r.status === 'FIXED').length : 0,
+  pending: scan.results ? scan.results.filter(r => r.status === 'PENDING').length : 0,
+  totalFiles: scan.total_files_scanned,
+  totalIssues: scan.total_issues_found,
+  highCount: scan.high_severity_count,
+  mediumCount: scan.medium_severity_count,
+  lowCount: scan.low_severity_count,
+  duration: scan.scan_duration,
 });
-
-// Initial data with serialized dates
-let scannedRepositories = repositories.map(serializeRepo);
-
-// Generate mock issues based on severity counts
-const generateMockIssues = (highCount, mediumCount, lowCount) => {
-  const issues = [];
-  
-  // Add high severity issues
-  for (let i = 0; i < highCount; i++) {
-    issues.push({
-      id: `${Date.now()}_HIGH_${i}`,
-      issue: 'Critical Security Vulnerability',
-      severity: 'HIGH',
-      location: 'src/config.js',
-      description: 'Found potential security vulnerability in configuration',
-      fix: 'Review and update security configuration',
-      status: 'PENDING'
-    });
-  }
-
-  // Add medium severity issues
-  for (let i = 0; i < mediumCount; i++) {
-    issues.push({
-      id: `${Date.now()}_MEDIUM_${i}`,
-      issue: 'Code Quality Issue',
-      severity: 'MEDIUM',
-      location: 'src/utils/helpers.js',
-      description: 'Identified potential code quality concerns',
-      fix: 'Refactor code following best practices',
-      status: 'PENDING'
-    });
-  }
-
-  // Add low severity issues
-  for (let i = 0; i < lowCount; i++) {
-    issues.push({
-      id: `${Date.now()}_LOW_${i}`,
-      issue: 'Minor Improvement Suggested',
-      severity: 'LOW',
-      location: 'src/components/UI.js',
-      description: 'Minor improvements could be made',
-      fix: 'Consider implementing suggested changes',
-      status: 'PENDING'
-    });
-  }
-
-  return issues;
-};
 
 export const scanApi = createApi({
   reducerPath: 'scanApi',
-  baseQuery: fakeBaseQuery(),
-  tagTypes: ['Scans'],
+  baseQuery: fetchBaseQuery({ 
+    baseUrl: API_BASE_URL,
+    prepareHeaders: (headers, { getState }) => {
+      headers.set('Content-Type', 'application/json');
+      return headers;
+    },
+  }),
+  tagTypes: ['Scans', 'Rules'],
   endpoints: (builder) => ({
+    // Get all scans with pagination and filtering
     getAllScans: builder.query({
-      queryFn: () => {
-        return { data: scannedRepositories };
+      query: ({ page = 1, limit = 50, status, repository } = {}) => {
+        const params = new URLSearchParams();
+        if (page) params.append('page', page);
+        if (limit) params.append('limit', limit);
+        if (status) params.append('status', status);
+        if (repository) params.append('repository', repository);
+        
+        return `scans?${params.toString()}`;
+      },
+      transformResponse: (response) => {
+        if (response.success && response.data?.scans) {
+          return response.data.scans.map(transformScanData);
+        }
+        return [];
       },
       providesTags: ['Scans'],
     }),
 
+    // Get scan by ID with detailed results
     getScanById: builder.query({
-      queryFn: (id) => {
-        const scan = scannedRepositories.find(repo => repo.id === parseInt(id));
-        return scan ? { data: scan } : { error: 'Scan not found' };
+      query: (id) => `scans/${id}`,
+      transformResponse: (response) => {
+        if (response.success && response.data) {
+          return transformScanData(response.data);
+        }
+        throw new Error('Scan not found');
       },
       providesTags: (result, error, id) => [{ type: 'Scans', id }],
     }),
 
+    // Create a new scan
     createScan: builder.mutation({
-      queryFn: (scanData) => {
-        try {
-          // Get selected rules
-          const rules = getSelectedRules();
-
-          // Build mock files for scanning
-          const files = [
-            { 
-              path: 'src/config.js', 
-              content: `export const config = {
-                apiKey: "sk-1234567890",
-                secret: "my-secret-key",
-                endpoint: "http://api.example.com"
-              };`
-            },
-            { 
-              path: 'src/components/Form.jsx', 
-              content: `const Form = () => {
-                return <div dangerouslySetInnerHTML={{__html: content}} />;
-              };`
-            },
-            { 
-              path: 'src/api/client.js', 
-              content: `fetch('http://insecure-api.com/data', {
-                headers: { Authorization: 'Bearer hardcoded-token' }
-              });`
-            }
-          ];
-
-          // Run scan with rules
-          const issues = rules.length > 0 
-            ? runRuleScan({ files, rules })
-            : generateMockIssues(
-                Math.floor(Math.random() * 2),
-                Math.floor(Math.random() * 3),
-                Math.floor(Math.random() * 2)
-              );
-
-          const newScan = {
-            id: Date.now(),
-            name: scanData.name,
-            url: scanData.url,
-            lastScan: new Date().toISOString(),
-            issues,
-            resolved: 0,
-            pending: issues.length
-          };
-
-          // Update scans array
-          scannedRepositories = [newScan, ...scannedRepositories];
-          
-          return { data: { ...newScan, totalIssues: issues.length } };
-        } catch (error) {
-          console.error('Scan error:', error);
-          return { 
-            error: { 
-              message: 'Scan failed', 
-              details: error.message 
-            } 
+      query: (scanData) => ({
+        url: 'scans',
+        method: 'POST',
+        body: {
+          repository_url: scanData.url,
+          rules_to_use: scanData.rules || [], // Optional: specify which rules to use
+        },
+      }),
+      transformResponse: (response) => {
+        if (response.success && response.data) {
+          return {
+            ...transformScanData(response.data),
+            totalIssues: response.data.total_issues_found || 0,
           };
         }
+        throw new Error(response.message || 'Failed to create scan');
       },
       invalidatesTags: ['Scans'],
+    }),
+
+    // Get scan statistics
+    getScanStatistics: builder.query({
+      query: () => 'scans/statistics',
+      transformResponse: (response) => {
+        if (response.success && response.data) {
+          return response.data;
+        }
+        return null;
+      },
+    }),
+
+    // Delete scan
+    deleteScan: builder.mutation({
+      query: (id) => ({
+        url: `scans/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Scans'],
+    }),
+
+    // Rules management endpoints
+    getAllRules: builder.query({
+      query: ({ category, severity, active } = {}) => {
+        const params = new URLSearchParams();
+        if (category) params.append('category', category);
+        if (severity) params.append('severity', severity);
+        if (active !== undefined) params.append('active', active);
+        
+        return `rules?${params.toString()}`;
+      },
+      transformResponse: (response) => {
+        if (response.success && response.data?.rules) {
+          return response.data.rules;
+        }
+        return [];
+      },
+      providesTags: ['Rules'],
     }),
   }),
 });
@@ -150,4 +131,7 @@ export const {
   useGetAllScansQuery,
   useGetScanByIdQuery,
   useCreateScanMutation,
+  useGetScanStatisticsQuery,
+  useDeleteScanMutation,
+  useGetAllRulesQuery,
 } = scanApi;
