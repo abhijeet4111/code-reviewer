@@ -9,10 +9,17 @@
     "seed": "node -e \"require('./src/seedRules').seedRules().then(() => process.exit())\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["security", "scanner", "vulnerabilities", "code-analysis", "github"],
+  "keywords": [
+    "security",
+    "scanner",
+    "vulnerabilities",
+    "code-analysis",
+    "github"
+  ],
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.11.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
@@ -21,6 +28,8 @@
     "nodemon": "^3.1.10",
     "pg": "^8.16.3",
     "sequelize": "^6.37.7",
+    "simple-git": "^3.28.0",
+    "sonarqube-scanner": "^4.3.0",
     "uuid": "^11.1.0"
   }
 }

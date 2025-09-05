@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from "../components/shadcn/Card";
 import { Button } from "../components/shadcn/Button";
 import { Input } from "../components/shadcn/Input";
-import { Shield, Plus, Save, AlertTriangle, GitBranch } from 'lucide-react';
-import { useCreateScanMutation } from '../store/scanApi';
+import { Shield, Plus, Save, AlertTriangle, GitBranch, Zap } from 'lucide-react';
+import { useCreateScanMutation, useCreateDeepScanMutation } from '../store/scanApi';
 import { useNotifications } from '../components/notifications/NotificationProvider';
 
 const Scans = () => {
   const navigate = useNavigate();
   const [url, setUrl] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [deepScanning, setDeepScanning] = useState(false);
   const [createScan] = useCreateScanMutation();
+  const [createDeepScan] = useCreateDeepScanMutation();
   const { addNotification } = useNotifications();
 
   const validateUrl = (url) => {
@@ -75,6 +77,62 @@ const Scans = () => {
     }
   };
 
+  const handleDeepScan = async (event) => {
+    event.preventDefault();
+    
+    if (!url) {
+      addNotification({
+        title: 'Validation Error',
+        message: 'Please enter a repository URL',
+      });
+      return;
+    }
+
+    if (!validateUrl(url)) {
+      addNotification({
+        title: 'Invalid URL',
+        message: 'Please enter a valid GitHub repository URL',
+      });
+      return;
+    }
+
+    setDeepScanning(true);
+    try {
+      const scanData = {
+        url: url.trim(),
+      };
+
+      addNotification({
+        title: 'Deep Scan Started',
+        message: 'SonarQube deep scan initiated. This may take several minutes...',
+      });
+
+      const result = await createDeepScan(scanData).unwrap();
+      
+      if (!result) {
+        throw new Error('Failed to initiate deep scan');
+      }
+
+      addNotification({
+        title: 'Deep Scan Complete',
+        message: `SonarQube deep scan completed for ${result.name}. Found ${result.totalIssues} issues.`,
+      });
+      
+      // Navigate to reports after successful scan
+      setTimeout(() => {
+        navigate('/reports');
+      }, 1500);
+    } catch (error) {
+      console.error('Deep scan error:', error);
+      addNotification({
+        title: 'Deep Scan Failed',
+        message: error.message || 'Failed to complete the SonarQube deep scan. Please ensure SonarQube is running and try again.',
+      });
+    } finally {
+      setDeepScanning(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="max-w-4xl mx-auto">
@@ -101,24 +159,47 @@ const Scans = () => {
                   required
                 />
               </div>
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={scanning || !url}
-              >
-                {scanning ? (
-                  <>
-                    <Shield className="mr-2 h-5 w-5 animate-pulse" />
-                    Scanning Repository...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="mr-2 h-5 w-5" />
-                    Start Security Scan
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-4">
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  size="lg"
+                  disabled={scanning || deepScanning || !url}
+                >
+                  {scanning ? (
+                    <>
+                      <Shield className="mr-2 h-5 w-5 animate-pulse" />
+                      Scanning Repository...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="mr-2 h-5 w-5" />
+                      Start Security Scan
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  type="button"
+                  onClick={handleDeepScan}
+                  className="flex-1"
+                  size="lg"
+                  variant="outline"
+                  disabled={scanning || deepScanning || !url}
+                >
+                  {deepScanning ? (
+                    <>
+                      <Zap className="mr-2 h-5 w-5 animate-pulse" />
+                      Deep Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-5 w-5" />
+                      Deep Scan (SonarQube)
+                    </>
+                  )}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -150,6 +231,13 @@ const Scans = () => {
                   <div>
                     <h3 className="font-medium">Custom Rules</h3>
                     <p className="text-sm text-gray-500">Support for custom security rules and patterns</p>
+                  </div>
+                </li>
+                <li className="flex items-start">
+                  <Zap className="h-5 w-5 text-purple-500 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium">SonarQube Deep Scan</h3>
+                    <p className="text-sm text-gray-500">Comprehensive analysis with industry-standard SonarQube engine</p>
                   </div>
                 </li>
               </ul>

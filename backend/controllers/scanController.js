@@ -4,13 +4,29 @@ const { v4: uuidv4 } = require('uuid');
 
 // Mock scanner function (you can replace this with actual GitHub API integration)
 const mockScanner = require('../src/mockScanner');
+// SonarQube scanner service
+const { scanRepositoryWithSonar, getSonarSummary } = require('../src/sonarService');
+
+/**
+ * Map SonarQube severity to our severity levels
+ */
+function mapSonarSeverity(sonarSeverity) {
+  const severityMap = {
+    'BLOCKER': 'HIGH',
+    'CRITICAL': 'HIGH',
+    'MAJOR': 'MEDIUM',
+    'MINOR': 'LOW',
+    'INFO': 'LOW',
+  };
+  return severityMap[sonarSeverity] || 'MEDIUM';
+}
 
 /**
  * Create a new scan
  */
 const createScan = async (req, res) => {
   try {
-    const { repository_url, rules_to_use = [] } = req.body;
+    const { repository_url, rules_to_use = [], scan_type = 'BASIC' } = req.body;
 
     if (!repository_url) {
       return res.status(400).json({
@@ -36,20 +52,59 @@ const createScan = async (req, res) => {
       repository_url,
       repository_name,
       repository_owner,
+      scan_type,
       scan_status: 'RUNNING',
       rules_used: rules_to_use,
     });
 
-    // Start scanning process (simulate with setTimeout)
+    // Start scanning process (simulate with setTimeout for basic, immediate for deep)
+    const scanDelay = scan_type === 'DEEP' ? 0 : 2000;
+    
     setTimeout(async () => {
       try {
-        // Get rules to use for scanning
-        const rulesToUse = rules_to_use.length > 0 
-          ? await Rule.findAll({ where: { id: { [Op.in]: rules_to_use } } })
-          : await Rule.findAll({ where: { is_active: true } });
+        let scanResults;
+        let sonarResults = null;
+        
+        if (scan_type === 'DEEP') {
+          console.log(`Starting deep scan (SonarQube) for: ${repository_url}`);
+          
+          // Run SonarQube scan
+          sonarResults = await scanRepositoryWithSonar(repository_url);
+          console.log('SonarQube scan completed successfully');
+          
+          // Convert SonarQube issues to our format
+          const sonarIssues = sonarResults.issues?.issues || [];
+          const convertedIssues = sonarIssues.map(issue => ({
+            id: uuidv4(),
+            rule_id: issue.rule || 'SONAR_RULE',
+            rule_name: issue.message || 'SonarQube Issue',
+            issue_type: issue.type || 'CODE_SMELL',
+            severity: mapSonarSeverity(issue.severity),
+            category: 'SonarQube',
+            file_path: issue.component || 'Unknown',
+            line_number: issue.line || null,
+            description: issue.message || 'Issue detected by SonarQube',
+            fix_suggestion: `Fix this ${issue.type} issue. Rule: ${issue.rule}`,
+            code_snippet: null,
+          }));
+          
+          scanResults = {
+            issues: convertedIssues,
+            totalFiles: getSonarSummary(sonarResults)?.linesOfCode || 0,
+            scanDuration: 0, // Will be calculated below
+          };
+          
+        } else {
+          console.log(`Starting basic scan for: ${repository_url}`);
+          
+          // Get rules to use for scanning
+          const rulesToUse = rules_to_use.length > 0 
+            ? await Rule.findAll({ where: { id: { [Op.in]: rules_to_use } } })
+            : await Rule.findAll({ where: { is_active: true } });
 
-        // Run mock scanner
-        const scanResults = await mockScanner.scanRepository(repository_url, rulesToUse);
+          // Run mock scanner
+          scanResults = await mockScanner.scanRepository(repository_url, rulesToUse);
+        }
         
         // Save scan results
         const results = await Promise.all(
@@ -80,14 +135,23 @@ const createScan = async (req, res) => {
           low_severity_count: 0,
         });
 
-        await scan.update({
+        const updateData = {
           scan_status: 'COMPLETED',
           scan_completed_at: new Date(),
           scan_duration: Math.floor((new Date() - scan.scan_started_at) / 1000),
           total_files_scanned: scanResults.totalFiles,
           total_issues_found: results.length,
           ...severityCounts,
-        });
+        };
+        
+        // Add SonarQube specific data if deep scan
+        if (scan_type === 'DEEP' && sonarResults) {
+          updateData.sonar_project_key = sonarResults.projectKey;
+          updateData.sonar_measures = sonarResults.measures;
+          updateData.sonar_issues = sonarResults.issues;
+        }
+        
+        await scan.update(updateData);
 
       } catch (error) {
         console.error('Scanning error:', error);
@@ -96,7 +160,7 @@ const createScan = async (req, res) => {
           scan_completed_at: new Date(),
         });
       }
-    }, 2000); // Simulate 2 second scan time
+    }, scanDelay);
 
     res.status(201).json({
       success: true,

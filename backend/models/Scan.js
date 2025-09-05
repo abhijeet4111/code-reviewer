@@ -23,6 +23,10 @@ const Scan = sequelize.define('Scan', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  scan_type: {
+    type: DataTypes.ENUM('BASIC', 'DEEP'),
+    defaultValue: 'BASIC',
+  },
   scan_status: {
     type: DataTypes.ENUM('PENDING', 'RUNNING', 'COMPLETED', 'FAILED'),
     defaultValue: 'PENDING',
@@ -62,6 +66,18 @@ const Scan = sequelize.define('Scan', {
   rules_used: {
     type: DataTypes.JSONB,
     defaultValue: [],
+  },
+  sonar_project_key: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  sonar_measures: {
+    type: DataTypes.JSONB,
+    defaultValue: {},
+  },
+  sonar_issues: {
+    type: DataTypes.JSONB,
+    defaultValue: {},
   },
   metadata: {
     type: DataTypes.JSONB,

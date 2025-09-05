@@ -10,6 +10,7 @@ const transformScanData = (scan) => ({
   url: scan.repository_url,
   lastScan: scan.scan_started_at,
   status: scan.scan_status,
+  scanType: scan.scan_type || 'BASIC',
   issues: scan.results || [],
   resolved: scan.results ? scan.results.filter(r => r.status === 'FIXED').length : 0,
   pending: scan.results ? scan.results.filter(r => r.status === 'PENDING').length : 0,
@@ -19,6 +20,11 @@ const transformScanData = (scan) => ({
   mediumCount: scan.medium_severity_count,
   lowCount: scan.low_severity_count,
   duration: scan.scan_duration,
+  sonarData: scan.scan_type === 'DEEP' ? {
+    projectKey: scan.sonar_project_key,
+    measures: scan.sonar_measures,
+    issues: scan.sonar_issues,
+  } : null,
 });
 
 export const scanApi = createApi({
@@ -124,6 +130,39 @@ export const scanApi = createApi({
       },
       providesTags: ['Rules'],
     }),
+
+    // SonarQube deep scan endpoints
+    createDeepScan: builder.mutation({
+      query: (scanData) => ({
+        url: 'sonar/scan',
+        method: 'POST',
+        body: {
+          repository_url: scanData.url,
+        },
+      }),
+      transformResponse: (response) => {
+        if (response.success && response.data) {
+          return {
+            ...transformScanData(response.data),
+            totalIssues: response.data.totalIssues || 0,
+            sonarSummary: response.data.sonarSummary,
+          };
+        }
+        throw new Error(response.message || 'Failed to create deep scan');
+      },
+      invalidatesTags: ['Scans'],
+    }),
+
+    // Get SonarQube project details
+    getSonarProjectDetails: builder.query({
+      query: (scanId) => `sonar/project/${scanId}`,
+      transformResponse: (response) => {
+        if (response.success && response.data) {
+          return response.data;
+        }
+        throw new Error('Failed to fetch SonarQube project details');
+      },
+    }),
   }),
 });
 
@@ -134,4 +173,6 @@ export const {
   useGetScanStatisticsQuery,
   useDeleteScanMutation,
   useGetAllRulesQuery,
+  useCreateDeepScanMutation,
+  useGetSonarProjectDetailsQuery,
 } = scanApi;

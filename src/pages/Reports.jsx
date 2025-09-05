@@ -122,6 +122,11 @@ const Reports = () => {
                             <ExternalLink className="w-4 h-4" />
                           </a>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            repo.scanType === 'DEEP' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {repo.scanType === 'DEEP' ? 'Deep Scan' : 'Basic Scan'}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             repo.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                             repo.status === 'RUNNING' ? 'bg-blue-100 text-blue-800' :
                             repo.status === 'FAILED' ? 'bg-red-100 text-red-800' :

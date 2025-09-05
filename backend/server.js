@@ -11,6 +11,7 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 // Import routes
 const scanRoutes = require('./routes/scanRoutes');
 const ruleRoutes = require('./routes/ruleRoutes');
+const sonarRoutes = require('./routes/sonarRoutes');
 
 // Import models to ensure they are registered
 require('./models');
@@ -26,7 +27,7 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -56,6 +57,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/scans', scanRoutes);
 app.use('/api/rules', ruleRoutes);
+app.use('/api/sonar', sonarRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -66,6 +68,7 @@ app.get('/', (req, res) => {
       health: '/health',
       scans: '/api/scans',
       rules: '/api/rules',
+      sonar: '/api/sonar',
     },
     documentation: 'https://github.com/your-repo/security-scanner',
   });
