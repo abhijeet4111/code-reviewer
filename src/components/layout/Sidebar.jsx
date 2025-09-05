@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Shield, FileSearch, Settings, Users, Activity } from 'lucide-react';
+import { Home, Shield, FileSearch, Settings, Users, Activity, Code } from 'lucide-react';
 
 const menuItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
   { icon: Shield, label: 'Security Scans', path: '/scans' },
   { icon: FileSearch, label: 'Reports', path: '/reports' },
+  { icon: Code, label: 'Rules Editor', path: '/rules' },
   { icon: Activity, label: 'Analytics', path: '/analytics' },
   { icon: Users, label: 'Team', path: '/team' },
   { icon: Settings, label: 'Settings', path: '/settings' },

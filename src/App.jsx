@@ -6,6 +6,7 @@ import Scans from './pages/Scans';
 import Reports from './pages/Reports';
 import ReportDetail from './pages/ReportDetail';
 import Profile from './pages/Profile';
+import Rules from './pages/Rules';
 import Analytics from './pages/Analytics';
 import Team from './pages/Team';
 import { NotificationProvider } from './components/notifications/NotificationProvider';
@@ -22,10 +23,11 @@ function App() {
             <Route path="/scans" element={<Scans />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/reports/:id" element={<ReportDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/settings" element={<Profile />} />
+            <Route path="/rules" element={<Rules />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/settings" element={<Profile />} />
             </Routes>
           </MainLayout>
         </NotificationProvider>

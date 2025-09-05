@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from "../components/shadcn/Card";
 import { Button } from "../components/shadcn/Button";
 import { Input } from "../components/shadcn/Input";
-import { Shield, AlertTriangle, CheckCircle, Clock, ExternalLink, Search, GitBranch } from 'lucide-react';
+import { Shield, Plus, Save, AlertTriangle, GitBranch } from 'lucide-react';
 import { useCreateScanMutation } from '../store/scanApi';
 import { useNotifications } from '../components/notifications/NotificationProvider';
 
@@ -44,38 +44,20 @@ const Scans = () => {
 
     setScanning(true);
     try {
-      // Generate mock scan data
-      const highSeverityCount = Math.floor(Math.random() * 2);
-      const mediumSeverityCount = Math.floor(Math.random() * 3);
-      const lowSeverityCount = Math.floor(Math.random() * 2);
-
       const scanData = {
         name: url.split('/').pop(),
-        url: url,
-        highSeverityCount,
-        mediumSeverityCount,
-        lowSeverityCount
+        url: url
       };
 
-      console.log('Sending scan data:', scanData);
-      const response = await createScan(scanData);
-      console.log('Received response:', response);
+      const result = await createScan(scanData).unwrap();
       
-      if (response.error) {
-        throw new Error(response.error.message || 'Scan failed');
+      if (!result) {
+        throw new Error('Invalid scan result');
       }
 
-      const scanResult = response.data;
-      
-      if (!scanResult || !scanResult.issues) {
-        throw new Error('Invalid scan result structure');
-      }
-
-      const totalIssues = scanResult.issues.length;
-      
       addNotification({
         title: 'Scan Complete',
-        message: `Found ${totalIssues} security issues in ${scanResult.name}`,
+        message: `Found ${result.totalIssues} security issues in ${result.name}`,
       });
       
       // Short delay before navigation for better UX
@@ -164,10 +146,10 @@ const Scans = () => {
                   </div>
                 </li>
                 <li className="flex items-start">
-                  <Search className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
+                  <Plus className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
                   <div>
-                    <h3 className="font-medium">Dependency Analysis</h3>
-                    <p className="text-sm text-gray-500">Check for vulnerable or outdated dependencies</p>
+                    <h3 className="font-medium">Custom Rules</h3>
+                    <p className="text-sm text-gray-500">Support for custom security rules and patterns</p>
                   </div>
                 </li>
               </ul>
