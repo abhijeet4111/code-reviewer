@@ -30,51 +30,110 @@ const severityData = [
   { name: 'Low', value: 36 },
 ];
 
+const generateMockScanResults = () => [
+  {
+    id: Date.now(),
+    issue: 'Hardcoded API Key',
+    severity: 'HIGH',
+    location: 'src/config.js:15',
+    description: 'Found hardcoded API key in configuration file',
+    fix: 'Move API key to environment variables',
+  },
+  {
+    id: Date.now() + 1,
+    issue: 'Insecure Cookie Settings',
+    severity: 'MEDIUM',
+    location: 'src/auth/session.js:45',
+    description: 'Cookie missing secure and httpOnly flags',
+    fix: 'Add secure and httpOnly flags to cookie configuration',
+  },
+  {
+    id: Date.now() + 2,
+    issue: 'Outdated Dependencies',
+    severity: 'LOW',
+    location: 'package.json',
+    description: 'Several dependencies are outdated and may contain vulnerabilities',
+    fix: 'Update dependencies to their latest secure versions',
+  },
+];
+
 const Dashboard = () => {
   const [scanning, setScanning] = useState(false);
+  const [results, setResults] = useState([]);
   const { addNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState('overview');
+  const [file, setFile] = useState(null);
+  const [url, setUrl] = useState('');
 
   const stats = [
     {
       title: 'Total Scans',
-      value: '1,234',
+      value: results.length || '0',
       icon: Shield,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
     },
     {
       title: 'Critical Issues',
-      value: '23',
+      value: results.filter(r => r.severity === 'HIGH').length || '0',
       icon: AlertTriangle,
       color: 'text-red-600',
       bgColor: 'bg-red-100',
     },
     {
       title: 'Resolved',
-      value: '789',
+      value: '0',
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-100',
     },
     {
       title: 'Pending',
-      value: '45',
+      value: results.length || '0',
       icon: Clock,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100',
     },
   ];
 
-  const handleScan = () => {
+  const handleFileUpload = async (event) => {
+    const uploadedFile = event.target.files[0];
+    if (uploadedFile) {
+      setFile(uploadedFile);
+      setUrl('');
+    }
+  };
+
+  const handleUrlSubmit = (event) => {
+    event.preventDefault();
+    if (url) {
+      startScan();
+    }
+  };
+
+  const startScan = async () => {
     setScanning(true);
-    setTimeout(() => {
-      setScanning(false);
-      addNotification({
-        title: 'Scan Complete',
-        message: 'Security scan completed successfully. Found 3 new issues.',
-      });
-    }, 2000);
+    // Mock scan delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Generate mock results
+    const newResults = generateMockScanResults();
+    setResults(newResults);
+    
+    addNotification({
+      title: 'Scan Complete',
+      message: `Found ${newResults.length} security issues. Check the results below.`,
+    });
+    
+    setScanning(false);
+    // Switch to overview tab to show results
+    setActiveTab('overview');
+  };
+
+  const severityColors = {
+    HIGH: 'bg-red-100 text-red-800',
+    MEDIUM: 'bg-yellow-100 text-yellow-800',
+    LOW: 'bg-green-100 text-green-800',
   };
 
   return (
@@ -124,6 +183,46 @@ const Dashboard = () => {
         </Tabs.List>
 
         <Tabs.Content value="overview">
+          {/* Results Table */}
+          {results.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Security Issues Found</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issue</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fix</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {results.map((result) => (
+                        <tr key={result.id}>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium">{result.issue}</div>
+                            <div className="text-sm text-gray-500">{result.description}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${severityColors[result.severity]}`}>
+                              {result.severity}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm">{result.location}</td>
+                          <td className="px-6 py-4 text-sm">{result.fix}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Activity Chart */}
             <Card>
@@ -186,23 +285,30 @@ const Dashboard = () => {
                   <label className="block text-sm font-medium mb-2">
                     Upload Plugin (ZIP)
                   </label>
-                  <Input type="file" accept=".zip" className="w-full" />
+                  <Input
+                    type="file"
+                    accept=".zip"
+                    onChange={handleFileUpload}
+                    className="w-full"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Or Enter Repository URL
                   </label>
-                  <div className="flex gap-2">
+                  <form onSubmit={handleUrlSubmit} className="flex gap-2">
                     <Input
                       type="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
                       placeholder="https://github.com/user/repo"
                       className="flex-1"
                     />
-                    <Button onClick={handleScan} disabled={scanning}>
+                    <Button type="submit" disabled={scanning}>
                       {scanning ? 'Scanning...' : 'Start Scan'}
                     </Button>
-                  </div>
+                  </form>
                 </div>
               </div>
             </CardContent>
